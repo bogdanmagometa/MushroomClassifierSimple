@@ -40,6 +40,8 @@ import org.tensorflow.lite.Interpreter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -141,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
                         .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                         .setSupportedResolutions(Arrays.asList(Pair.create(ImageFormat.YUV_420_888, new Size[]{new Size(640, 480)}))) //TODO: check supported resolutions
                         .build();
-                imageAnalysis.setAnalyzer(cameraExecutor, new LuminosityCalculator());
+                imageAnalysis.setAnalyzer(cameraExecutor, new MushroomClassifier());
 
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
 
@@ -167,21 +169,23 @@ public class MainActivity extends AppCompatActivity {
         return bitmap;
     }
 
-    private int predict(float[][][][] imageBuffer) {
-        float[][] preds = new float[1][NUM_LABELS];
-        interpreter.run(imageBuffer, preds);
+    private int predict(ByteBuffer inputImage) {
+        int bufferSize = NUM_LABELS * java.lang.Float.SIZE / java.lang.Byte.SIZE;
+        ByteBuffer modelOutput = ByteBuffer.allocateDirect(bufferSize);//.order(ByteOrder.nativeOrder());
+        interpreter.run(inputImage, modelOutput);
         int maxPos = 0;
 
-        for (int i = 0; i < preds[0].length; ++i) {
-            if (preds[0][maxPos] < preds[0][i]) {
+        FloatBuffer probabilities = modelOutput.asFloatBuffer();
+
+        for (int i = 0; i < probabilities.capacity(); ++i) {
+            if (probabilities.get(maxPos) < probabilities.get(i)) {
                 maxPos = i;
             }
         }
-        Log.d(TAG, Arrays.toString(preds[0]));
         return maxPos;
     }
 
-    private class LuminosityCalculator implements ImageAnalysis.Analyzer {
+    private class MushroomClassifier implements ImageAnalysis.Analyzer {
         @Override
         public void analyze(@NonNull ImageProxy imageProxy) {
             Image image = imageProxy.getImage();
@@ -196,15 +200,16 @@ public class MainActivity extends AppCompatActivity {
                 byte[] bytes = new byte[WIDTH * WIDTH * 3];
                 cvMatRGB.get(0, 0, bytes);
 
-                float[][][][] inputImage = new float[1][WIDTH][WIDTH][3];
+//                float[][][][] inputImage = new float[1][WIDTH][WIDTH][3];
+                ByteBuffer inputImage = ByteBuffer.allocateDirect(WIDTH * WIDTH * 3 * 4).order(ByteOrder.nativeOrder());
                 for (int i = 0; i < WIDTH; ++i) {
                     for (int j = 0; j < WIDTH; ++j) {
                         byte[] depthColumn = new byte[3];
                         cvMatRGB.get(i, j, depthColumn);
 
-                        inputImage[0][i][j][0] = Byte.toUnsignedInt(depthColumn[0]);
-                        inputImage[0][i][j][1] = Byte.toUnsignedInt(depthColumn[1]);
-                        inputImage[0][i][j][2] = Byte.toUnsignedInt(depthColumn[2]);
+                        inputImage.putFloat(Byte.toUnsignedInt(depthColumn[0]));
+                        inputImage.putFloat(Byte.toUnsignedInt(depthColumn[1]));
+                        inputImage.putFloat(Byte.toUnsignedInt(depthColumn[2]));
                     }
                 }
 
