@@ -10,25 +10,24 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
-import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.ImageFormat;
 import android.media.Image;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.provider.Settings;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
 import android.widget.Toast;
 
 import com.example.mushroomclassifiersimple.databinding.ActivityMainBinding;
+import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.firebase.ml.modeldownloader.CustomModel;
+import com.google.firebase.ml.modeldownloader.CustomModelDownloadConditions;
+import com.google.firebase.ml.modeldownloader.DownloadType;
+import com.google.firebase.ml.modeldownloader.FirebaseModelDownloader;
 
 import org.opencv.android.OpenCVLoader;
 import org.opencv.android.Utils;
@@ -37,8 +36,7 @@ import org.opencv.core.Mat;
 import org.opencv.imgproc.Imgproc;
 import org.tensorflow.lite.Interpreter;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,7 +47,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
-    private static final String TAG = "MushroomClassifierSimple";
+    private static final String TAG = "MushroomClassifierSimpleTag";
     private static final int REQUEST_CODE_PERMISSIONS = 10;
     private static List<String> REQUIRED_PERMISSIONS = new ArrayList<>();
     private static final int WIDTH = 224;
@@ -59,10 +57,6 @@ public class MainActivity extends AppCompatActivity {
 
     static {
         REQUIRED_PERMISSIONS.add(android.Manifest.permission.CAMERA);
-        REQUIRED_PERMISSIONS.add(android.Manifest.permission.RECORD_AUDIO);
-        if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
-            REQUIRED_PERMISSIONS.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
-        }
 
         if (!OpenCVLoader.initDebug())
             Log.d("ERROR", "Unable to load OpenCV");
@@ -95,14 +89,6 @@ public class MainActivity extends AppCompatActivity {
         viewBinding = ActivityMainBinding.inflate(getLayoutInflater());
         setContentView(viewBinding.getRoot());
 
-        if (Build.VERSION.SDK_INT >= 30) {
-            if (!Environment.isExternalStorageManager()) {
-                Intent getpermission = new Intent();
-                getpermission.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
-                startActivity(getpermission);
-            }
-        }
-
         if (allPermissionsGranted()) {
             startCamera();
         } else {
@@ -111,7 +97,8 @@ public class MainActivity extends AppCompatActivity {
 
         cameraExecutor = Executors.newSingleThreadExecutor();
 
-        interpreter = new Interpreter(getModelByteBuffer());
+        getInterpreter();
+        Log.d(TAG, "getInterpreter finished");
     }
 
     @Override
@@ -141,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
                         .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                         .setSupportedResolutions(Arrays.asList(Pair.create(ImageFormat.YUV_420_888, new Size[]{new Size(640, 480)}))) //TODO: check supported resolutions
                         .build();
-                imageAnalysis.setAnalyzer(cameraExecutor, new LuminosityCalculator());
+                imageAnalysis.setAnalyzer(cameraExecutor, new MushroomClassifier());
 
                 CameraSelector cameraSelector = CameraSelector.DEFAULT_BACK_CAMERA;
 
@@ -177,13 +164,17 @@ public class MainActivity extends AppCompatActivity {
                 maxPos = i;
             }
         }
-        Log.d(TAG, Arrays.toString(preds[0]));
+//        Log.d(TAG, Arrays.toString(preds[0]));
         return maxPos;
     }
 
-    private class LuminosityCalculator implements ImageAnalysis.Analyzer {
+    private class MushroomClassifier implements ImageAnalysis.Analyzer {
         @Override
         public void analyze(@NonNull ImageProxy imageProxy) {
+            if (interpreter == null) {
+                imageProxy.close();
+                return;
+            }
             Image image = imageProxy.getImage();
             if (image != null) {
                 Bitmap bitmap = toBitmap(image);
@@ -216,7 +207,7 @@ public class MainActivity extends AppCompatActivity {
                         viewBinding.predictionText.setText(NUM_TO_NAME_MAP.get(pred));
                     }
                 });
-                Log.d(TAG, "Prediction: " + String.valueOf(pred));
+//                Log.d(TAG, "Prediction: " + String.valueOf(pred));
             } //TODO: handle the other case
             imageProxy.close();
         }
@@ -244,35 +235,28 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    private ByteBuffer getModelByteBuffer() {
-        // Obtain a reference to the Resources object
-        Resources res = getResources();
+    private void getInterpreter() {
+        CustomModelDownloadConditions conditions = new CustomModelDownloadConditions.Builder()
+                .requireWifi()  // Also possible: .requireCharging() and .requireDeviceIdle()
+                .build();
+        FirebaseModelDownloader.getInstance()
+                .getModel("MushroomClassifier", DownloadType.LOCAL_MODEL_UPDATE_IN_BACKGROUND, conditions)
+                .addOnSuccessListener(new OnSuccessListener<CustomModel>() {
+                    @Override
+                    public void onSuccess(CustomModel model) {
+                        // Download complete. Depending on your app, you could enable the ML
+                        // feature, or switch from the local model to the remote model, etc.
 
-        // Get the resource ID of the raw resource you want to read
-        int resourceId = R.raw.model;
-
-        // Open an InputStream to the raw resource
-        InputStream inputStream = res.openRawResource(resourceId);
-
-        // Create a new byte array to hold the data
-        byte[] buffer = new byte[0];
-        try {
-            buffer = new byte[inputStream.available()];
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        // Read the data from the InputStream into the byte array
-        try {
-            inputStream.read(buffer);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        // Create a new ByteBuffer from the byte array
-        ByteBuffer byteBuffer = ByteBuffer.allocateDirect(buffer.length);
-        byteBuffer.put(buffer);
-
-        return byteBuffer;
+                        // The CustomModel object contains the local path of the model file,
+                        // which you can use to instantiate a TensorFlow Lite interpreter.
+                        Log.d(TAG, "onSuccess called");
+                        File modelFile = model.getFile();
+                        if (modelFile != null) {
+                            Log.d(TAG, "modelFile available");
+                            interpreter = new Interpreter(modelFile);
+                            Log.d(TAG, "interpreter set");
+                        }
+                    }
+                });
     }
 }
