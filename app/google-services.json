@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1053684682191",
+    "project_id": "mushroomclassifier-418ff",
+    "storage_bucket": "mushroomclassifier-418ff.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1053684682191:android:182ccf19762e7501d196ba",
+        "android_client_info": {
+          "package_name": "com.example.mushroomclassifiersimple"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1053684682191-ffn8t1lt4v6uhdf5tkmbbt18p5nab0cu.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA9DfIbzCcOVCbeJaApWn-4BtLLG6O-ZbY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1053684682191-ffn8t1lt4v6uhdf5tkmbbt18p5nab0cu.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
