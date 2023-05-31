@@ -1,5 +1,7 @@
 # Mushroom Classifier
 
+**Authors**: <a href="https://github.com/viktorpovazhuk">Viktor Povazhuk</a>, <a href="https://github.com/bogdanmagometa">Bohdan Mahometa</a>.
+
 This Android application is designed to classify images of mushrooms using the phone's camera. The app utilizes machine learning techniques to assign mushroom images to specific classes.
 
 The deployed model is based on the MobileNetV2. The corresponding notebook with modeling is available <a href="https://www.kaggle.com/code/vikpov/mushrooms-classifier-2">here</a>. The accuracy of the model on test dataset is $69\%$.
