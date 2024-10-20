@@ -55,8 +55,3 @@ $ ./gradlew installDebug
 
 <img src="./img/demo_img.png" width=250 />
 
-## Contribution
-
-Contributions to the Mushroom Classifier app are welcome! If you encounter any issues or have suggestions for improvements, please open an issue on the project's GitHub repository. Feel free to submit pull requests to contribute new features or fix existing problems.
-
-Before contributing, please review the project's code of conduct and guidelines for contributing, which can be found in the repository.
